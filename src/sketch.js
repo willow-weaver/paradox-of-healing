@@ -17,6 +17,9 @@ export const sketch = (p) => {
     adjacencyMatrix: [],
   };
 
+  // Add a constant to define the maximum distance for a connection
+  const MAX_CONNECTION_DISTANCE = 200; // Adjust as needed
+
   function generateClusters(n) {
     let remainingPoints = n;
     const numClusters = p.random(n / 2, n);
@@ -71,10 +74,8 @@ export const sketch = (p) => {
   }
 
   function drawGrid() {
-
     // Draw the control point
     p.fill(255, 0, 0); // Red color for the control point
-    //ellipse(controlPoint.x, controlPoint.y, 10, 10); // Draw the control point
 
     // Draw lines connecting grid points for visual aid
     p.stroke(150); // Gray color for grid lines
@@ -106,34 +107,21 @@ export const sketch = (p) => {
   }
 
   function warpPoint(point) {
-    // let controlPoint = createVector(x, y);
-
-    // Calculate the distance from the point to the control point
     let distance = p.dist(point.x, point.y, controlPoint.x, controlPoint.y);
-
-    // Maximum possible distance on the canvas (diagonal distance)
     let maxDist = p.dist(0, 0, p.width, p.height);
 
     if (distance > maxDist / 11) {
       return point;
     }
 
-    // Map the distance to a warp factor: closer points get a larger factor, farther points a smaller factor
-    // For example, distance 0 maps to 1.5, and maxDist maps to 0.5
     let factor = p.map(distance, 0, maxDist, 1.5, -4);
-
-    // Calculate the direction vector from the control point to the current point
     let direction = p5.Vector.sub(point, controlPoint);
-
-    // Scale the direction vector by the warp factor
     direction.mult(factor);
-
-    // Add the scaled direction vector to the control point's position to get the new position
     return p5.Vector.add(controlPoint, direction);
   }
 
   const simulate = (fixedTimestep) => {
-    // console.log("Simulating after", fixedTimestep);
+    // Simulating behavior
   };
 
   p.setup = () => {
@@ -171,12 +159,43 @@ export const sketch = (p) => {
 
     p.stroke(150, 150, 150);
     const numNodes = state.nodes.length;
+
+    // Loop through all pairs of nodes
     for (let i = 0; i < numNodes; ++i) {
-      for (let j = 0; j < numNodes; ++j) {
-        if (i == j) continue;
+      for (let j = i + 1; j < numNodes; ++j) {
+        const inode = state.nodes[i];
+        const jnode = state.nodes[j];
+
+        // Calculate the distance between the two nodes
+        const distance = p.dist(
+          inode.position.x,
+          inode.position.y,
+          jnode.position.x,
+          jnode.position.y
+        );
+
+        // If the distance is less than the MAX_CONNECTION_DISTANCE, we keep/adjust the connection
+        if (distance < MAX_CONNECTION_DISTANCE) {
+          // Calculate the strength of the connection based on distance
+          const connectionStrength = p.map(
+            distance,
+            0,
+            MAX_CONNECTION_DISTANCE,
+            maxFriendliness,
+            0
+          ); // Inversely proportional to distance
+
+          // Update the adjacency matrix with the new connection strength
+          state.adjacencyMatrix[i * numNodes + j] = connectionStrength;
+          state.adjacencyMatrix[j * numNodes + i] = connectionStrength; // Symmetric matrix
+        } else {
+          // If the distance is too far, remove the connection
+          state.adjacencyMatrix[i * numNodes + j] = 0;
+          state.adjacencyMatrix[j * numNodes + i] = 0;
+        }
+
+        // Draw the connection if it's strong enough
         if (state.adjacencyMatrix[i * numNodes + j] > 0) {
-          const inode = state.nodes[i];
-          const jnode = state.nodes[j];
           p.line(
             inode.position.x,
             inode.position.y,
@@ -187,6 +206,7 @@ export const sketch = (p) => {
       }
     }
 
+    // Draw the nodes
     p.fill(70, 70, 70);
     p.stroke(70, 70, 70);
     for (const node of state.nodes) {
@@ -196,9 +216,7 @@ export const sketch = (p) => {
 
   p.mouseMoved = () => {
     // Update the control point's position if dragging
-    // if (dragging) {
-      controlPoint.x = p.mouseX;
-      controlPoint.y = p.mouseY;
-    // }
-  }
+    controlPoint.x = p.mouseX;
+    controlPoint.y = p.mouseY;
+  };
 };
